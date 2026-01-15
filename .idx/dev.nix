@@ -52,11 +52,13 @@
       BASE_SYSTEM_DMG="$MACOS_DOWNLOADS/BaseSystem.dmg"
       MAC_HDD="$VM_DIR/mac_hdd_ng.img"
       NOVNC_DIR="$PROJECT_DIR/noVNC"
+      TEMP_DIR="$PROJECT_DIR/.tmp"
       OVMF_DIR="$MACOS_REPO"
 
       mkdir -p "$PROJECT_DIR"
       mkdir -p "$VM_DIR"
       mkdir -p "$MACOS_DOWNLOADS"
+      mkdir -p "$TEMP_DIR"
 
       # =========================
       # Copy OSX-KVM repo if needed
@@ -250,19 +252,12 @@
       
       echo "✓ All QEMU files verified and readable"
       
-      # Ensure /var/tmp exists and is writable (needed for QEMU snapshots)
-      if [ ! -d "/var/tmp" ]; then
-        echo "Creating /var/tmp..."
-        sudo mkdir -p /var/tmp
-      fi
-      
-      if [ ! -w "/var/tmp" ]; then
-        echo "❌ /var/tmp is not writable, fixing permissions..."
-        sudo chmod 1777 /var/tmp
-      fi
+      # Set up local temp directory for QEMU
+      echo "Setting up local temporary directory at $TEMP_DIR..."
+      export TMPDIR="$TEMP_DIR"
       
       echo "Starting QEMU for macOS Tahoe..."
-      nohup qemu-system-x86_64 \
+      nohup env TMPDIR="$TEMP_DIR" qemu-system-x86_64 \
         -enable-kvm \
         -m 4096 \
         -cpu Penryn,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check \
