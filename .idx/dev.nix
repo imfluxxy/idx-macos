@@ -197,13 +197,28 @@
       if [ ! -f "$VM_DIR/OpenCore.qcow2" ]; then
         if [ -f "$OVMF_DIR/OpenCore/OpenCore.qcow2" ]; then
           echo "Copying OpenCore.qcow2..."
-          cp "$OVMF_DIR/OpenCore/OpenCore.qcow2" "$VM_DIR/" || { echo "❌ Failed to copy OpenCore.qcow2"; exit 1; }
-          echo "✓ OpenCore.qcow2 ready"
+          if ! cp "$OVMF_DIR/OpenCore/OpenCore.qcow2" "$VM_DIR/"; then
+            echo "❌ Failed to copy OpenCore.qcow2"
+            exit 1
+          fi
+          
+          # Verify the file was copied and check its size
+          if [ ! -f "$VM_DIR/OpenCore.qcow2" ]; then
+            echo "❌ OpenCore.qcow2 copy verification failed"
+            exit 1
+          fi
+          
+          FILE_SIZE=$(du -h "$VM_DIR/OpenCore.qcow2" | cut -f1)
+          echo "✓ OpenCore.qcow2 ready (size: $FILE_SIZE)"
         else
-          echo "⚠ OpenCore.qcow2 not found, QEMU may fail to boot"
+          echo "⚠ OpenCore.qcow2 not found at $OVMF_DIR/OpenCore/OpenCore.qcow2"
+          echo "Checking available files in $OVMF_DIR/OpenCore/:"
+          ls -lh "$OVMF_DIR/OpenCore/" 2>/dev/null || echo "Directory not found"
+          echo "⚠ Continuing without OpenCore.qcow2 - QEMU may fail to boot"
         fi
       else
-        echo "OpenCore.qcow2 already exists."
+        FILE_SIZE=$(du -h "$VM_DIR/OpenCore.qcow2" | cut -f1)
+        echo "OpenCore.qcow2 already exists (size: $FILE_SIZE)."
       fi
 
       # =========================
@@ -220,13 +235,31 @@
       # =========================
       # Start QEMU for macOS
       # =========================
-      # Verify all required files exist
+      # Verify all required files exist and are readable
       echo "Verifying QEMU files..."
       [ -f "$VM_DIR/OVMF_CODE.fd" ] || { echo "❌ Missing: $VM_DIR/OVMF_CODE.fd"; exit 1; }
       [ -f "$VM_DIR/OVMF_VARS-1920x1080.fd" ] || { echo "❌ Missing: $VM_DIR/OVMF_VARS-1920x1080.fd"; exit 1; }
       [ -f "$VM_DIR/OpenCore.qcow2" ] || { echo "❌ Missing: $VM_DIR/OpenCore.qcow2"; exit 1; }
       [ -f "$BASE_SYSTEM" ] || { echo "❌ Missing: $BASE_SYSTEM"; exit 1; }
-      echo "✓ All QEMU files verified"
+      
+      # Verify files are readable
+      [ -r "$VM_DIR/OVMF_CODE.fd" ] || { echo "❌ Not readable: $VM_DIR/OVMF_CODE.fd"; exit 1; }
+      [ -r "$VM_DIR/OVMF_VARS-1920x1080.fd" ] || { echo "❌ Not readable: $VM_DIR/OVMF_VARS-1920x1080.fd"; exit 1; }
+      [ -r "$VM_DIR/OpenCore.qcow2" ] || { echo "❌ Not readable: $VM_DIR/OpenCore.qcow2"; exit 1; }
+      [ -r "$BASE_SYSTEM" ] || { echo "❌ Not readable: $BASE_SYSTEM"; exit 1; }
+      
+      echo "✓ All QEMU files verified and readable"
+      
+      # Ensure /var/tmp exists and is writable (needed for QEMU snapshots)
+      if [ ! -d "/var/tmp" ]; then
+        echo "Creating /var/tmp..."
+        sudo mkdir -p /var/tmp
+      fi
+      
+      if [ ! -w "/var/tmp" ]; then
+        echo "❌ /var/tmp is not writable, fixing permissions..."
+        sudo chmod 1777 /var/tmp
+      fi
       
       echo "Starting QEMU for macOS Tahoe..."
       nohup qemu-system-x86_64 \
@@ -245,7 +278,7 @@
         -device ich9-intel-hda \
         -device hda-duplex \
         -device ich9-ahci,id=sata \
-        -drive id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file="$VM_DIR/OpenCore.qcow2" \
+        -drive id=OpenCoreBoot,if=none,format=qcow2,file="$VM_DIR/OpenCore.qcow2" \
         -device ide-hd,bus=sata.2,drive=OpenCoreBoot \
         -drive id=InstallMedia,if=none,file="$BASE_SYSTEM",format=raw \
         -device ide-hd,bus=sata.3,drive=InstallMedia \
