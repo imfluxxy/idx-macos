@@ -85,38 +85,53 @@
         # Check if DMG already exists, if so, just convert it
         if [ ! -f "$BASE_SYSTEM_DMG" ]; then
           echo "Downloading macOS Tahoe installer to $MACOS_DOWNLOADS..."
-          if python3 ./fetch-macOS-v2.py --board-id Mac-27AD2F918AE68F61 --os-type default -o "$MACOS_DOWNLOADS" 2>&1 <<< "9"; then
+          cd "$MACOS_DOWNLOADS" || { echo "❌ Failed to enter $MACOS_DOWNLOADS"; exit 1; }
+          
+          # Try downloading with the specified method
+          if python3 "$MACOS_REPO/fetch-macOS-v2.py" --board-id Mac-27AD2F918AE68F61 --os-type default 2>&1 <<< "9"; then
             echo "✓ Downloaded successfully"
           else
             echo "⚠ First download attempt failed, trying alternative method..."
-            if python3 ./fetch-macOS-v2.py 2>&1 <<< "9"; then
+            if python3 "$MACOS_REPO/fetch-macOS-v2.py" 2>&1 <<< "9"; then
               echo "✓ Alternative download succeeded"
-              # Move the downloaded file to the correct location if needed
-              if [ -f "$MACOS_DOWNLOADS/BaseSystem.dmg" ]; then
-                echo "✓ DMG found in downloads folder"
-              elif [ -f "BaseSystem.dmg" ]; then
-                mv "BaseSystem.dmg" "$BASE_SYSTEM_DMG"
-              fi
             else
               echo "❌ Failed to download macOS Tahoe installer"
+              echo "Checking what files are in $MACOS_DOWNLOADS:"
+              ls -lh "$MACOS_DOWNLOADS"
               exit 1
             fi
           fi
+          
+          # Check for the downloaded file and rename if needed
+          echo "Checking for downloaded files in $MACOS_DOWNLOADS..."
+          if [ -f "$MACOS_DOWNLOADS/BaseSystem.dmg" ]; then
+            echo "✓ BaseSystem.dmg found at $MACOS_DOWNLOADS/BaseSystem.dmg"
+          elif [ -f "BaseSystem.dmg" ]; then
+            echo "✓ BaseSystem.dmg found in current directory, no move needed"
+          else
+            echo "❌ BaseSystem.dmg not found after download"
+            echo "Files in $MACOS_DOWNLOADS:"
+            ls -lh "$MACOS_DOWNLOADS" || true
+            echo "Files in current directory:"
+            ls -lh . || true
+            exit 1
+          fi
         else
-          echo "BaseSystem.dmg already exists in downloads folder, skipping download."
+          echo "BaseSystem.dmg already exists in $MACOS_DOWNLOADS, skipping download."
         fi
 
         # Convert BaseSystem.dmg to BaseSystem.img if needed
         if [ -f "$BASE_SYSTEM_DMG" ]; then
-          echo "Converting BaseSystem.dmg to BaseSystem.img..."
+          echo "Converting $BASE_SYSTEM_DMG to $BASE_SYSTEM..."
           if ! dmg2img "$BASE_SYSTEM_DMG" "$BASE_SYSTEM"; then
             echo "❌ Failed to convert BaseSystem.dmg"
             exit 1
           fi
           echo "✓ Conversion complete"
           echo "✓ BaseSystem.img saved to: $BASE_SYSTEM"
-        elif [ ! -f "$BASE_SYSTEM" ]; then
-          echo "❌ BaseSystem image not found after download"
+        else
+          echo "❌ BaseSystem.dmg not found at $BASE_SYSTEM_DMG"
+          echo "Cannot proceed with conversion"
           exit 1
         fi
       else
