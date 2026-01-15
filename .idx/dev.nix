@@ -27,6 +27,7 @@
         rm -rf /home/user/.gradle/* /home/user/.emu/* || true
         find /home/user -mindepth 1 -maxdepth 1 \
           ! -name 'OSX-KVM' \
+          ! -name 'idx-macos' \
           ! -name 'idx-windows-gui' \
           ! -name '.cleanup_done' \
           ! -name '.*' \
