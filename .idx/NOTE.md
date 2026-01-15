@@ -1,0 +1,1 @@
+Here we contain https://idx.google.com nix file and which because idx workspace is using NixOS for their workspace.
