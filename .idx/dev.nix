@@ -59,13 +59,19 @@
       if [ ! -d "$MACOS_REPO" ]; then
         echo "Cloning OSX-KVM repository..."
         cd "$HOME"
-        git clone --depth 1 --recursive https://github.com/kholia/OSX-KVM.git
-        cd "$MACOS_REPO"
+        if ! git clone --depth 1 --recursive https://github.com/kholia/OSX-KVM.git; then
+          echo "❌ Failed to clone OSX-KVM repository"
+          exit 1
+        fi
+        if [ ! -d "$MACOS_REPO" ]; then
+          echo "❌ OSX-KVM directory not found after clone"
+          exit 1
+        fi
       else
         echo "OSX-KVM repository already exists."
       fi
 
-      cd "$MACOS_REPO"
+      cd "$MACOS_REPO" || { echo "❌ Failed to enter $MACOS_REPO"; exit 1; }
 
       # =========================
       # Download macOS Tahoe installer
@@ -73,15 +79,29 @@
       if [ ! -f "$BASE_SYSTEM" ]; then
         echo "Downloading macOS Tahoe installer..."
         # Create a temporary script to fetch macOS Tahoe (option 9)
-        python3 ./fetch-macOS-v2.py --board-id Mac-27AD2F918AE68F61 --os-type default -o "$VM_DIR" 2>&1 <<< "9" || {
-          echo "Attempting alternative download method..."
-          python3 ./fetch-macOS-v2.py 2>&1 <<< "9"
-        }
+        if python3 ./fetch-macOS-v2.py --board-id Mac-27AD2F918AE68F61 --os-type default -o "$VM_DIR" 2>&1 <<< "9"; then
+          echo "✓ Downloaded successfully"
+        else
+          echo "⚠ First download attempt failed, trying alternative method..."
+          if python3 ./fetch-macOS-v2.py 2>&1 <<< "9"; then
+            echo "✓ Alternative download succeeded"
+          else
+            echo "❌ Failed to download macOS Tahoe installer"
+            exit 1
+          fi
+        fi
 
         # Convert BaseSystem.dmg to BaseSystem.img if needed
         if [ -f "$VM_DIR/BaseSystem.dmg" ]; then
           echo "Converting BaseSystem.dmg to BaseSystem.img..."
-          dmg2img "$VM_DIR/BaseSystem.dmg" "$BASE_SYSTEM"
+          if ! dmg2img "$VM_DIR/BaseSystem.dmg" "$BASE_SYSTEM"; then
+            echo "❌ Failed to convert BaseSystem.dmg"
+            exit 1
+          fi
+          echo "✓ Conversion complete"
+        elif [ ! -f "$BASE_SYSTEM" ]; then
+          echo "❌ BaseSystem image not found after download"
+          exit 1
         fi
       else
         echo "macOS BaseSystem already exists, skipping download."
@@ -92,7 +112,11 @@
       # =========================
       if [ ! -f "$MAC_HDD" ]; then
         echo "Creating virtual HDD for macOS (128GB)..."
-        qemu-img create -f qcow2 "$MAC_HDD" 128G
+        if ! qemu-img create -f qcow2 "$MAC_HDD" 128G; then
+          echo "❌ Failed to create virtual HDD"
+          exit 1
+        fi
+        echo "✓ Virtual HDD created"
       else
         echo "Virtual HDD already exists, skipping creation."
       fi
@@ -102,17 +126,39 @@
       # =========================
       if [ ! -f "$VM_DIR/OVMF_CODE.fd" ]; then
         echo "Copying OVMF firmware..."
-        cp "$OVMF_DIR/OVMF_CODE.fd" "$VM_DIR/" 2>/dev/null || \
-        cp "$OVMF_DIR/OVMF_CODE.fd.fallback" "$VM_DIR/OVMF_CODE.fd" 2>/dev/null || \
-        echo "Warning: OVMF_CODE.fd not found in repository"
+        if [ -f "$OVMF_DIR/OVMF_CODE.fd" ]; then
+          cp "$OVMF_DIR/OVMF_CODE.fd" "$VM_DIR/" || { echo "❌ Failed to copy OVMF_CODE.fd"; exit 1; }
+        elif [ -f "$OVMF_DIR/OVMF_CODE.fd.fallback" ]; then
+          cp "$OVMF_DIR/OVMF_CODE.fd.fallback" "$VM_DIR/OVMF_CODE.fd" || { echo "❌ Failed to copy OVMF_CODE.fd.fallback"; exit 1; }
+        else
+          echo "❌ OVMF_CODE.fd not found in $OVMF_DIR"
+          ls -la "$OVMF_DIR" | grep -i ovmf || echo "No OVMF files found"
+          exit 1
+        fi
+      else
+        echo "OVMF_CODE.fd already exists."
       fi
 
       if [ ! -f "$VM_DIR/OVMF_VARS-1920x1080.fd" ]; then
         echo "Copying OVMF_VARS..."
-        cp "$OVMF_DIR/OVMF_VARS-1920x1080.fd" "$VM_DIR/" 2>/dev/null || \
-        cp "$OVMF_DIR/OVMF_VARS.fd" "$VM_DIR/OVMF_VARS-1920x1080.fd" 2>/dev/null || \
-        echo "Warning: OVMF_VARS not found in repository"
+        if [ -f "$OVMF_DIR/OVMF_VARS-1920x1080.fd" ]; then
+          cp "$OVMF_DIR/OVMF_VARS-1920x1080.fd" "$VM_DIR/" || { echo "❌ Failed to copy OVMF_VARS-1920x1080.fd"; exit 1; }
+        elif [ -f "$OVMF_DIR/OVMF_VARS.fd" ]; then
+          cp "$OVMF_DIR/OVMF_VARS.fd" "$VM_DIR/OVMF_VARS-1920x1080.fd" || { echo "❌ Failed to copy OVMF_VARS.fd"; exit 1; }
+        else
+          echo "❌ OVMF_VARS not found in $OVMF_DIR"
+          exit 1
+        fi
+      else
+        echo "OVMF_VARS-1920x1080.fd already exists."
       fi
+      
+      # Verify files exist before proceeding
+      if [ ! -f "$VM_DIR/OVMF_CODE.fd" ] || [ ! -f "$VM_DIR/OVMF_VARS-1920x1080.fd" ]; then
+        echo "❌ OVMF files verification failed"
+        exit 1
+      fi
+      echo "✓ OVMF firmware ready"
 
       # =========================
       # Copy OpenCore.qcow2 if available
@@ -120,8 +166,13 @@
       if [ ! -f "$VM_DIR/OpenCore.qcow2" ]; then
         if [ -f "$OVMF_DIR/OpenCore/OpenCore.qcow2" ]; then
           echo "Copying OpenCore.qcow2..."
-          cp "$OVMF_DIR/OpenCore/OpenCore.qcow2" "$VM_DIR/"
+          cp "$OVMF_DIR/OpenCore/OpenCore.qcow2" "$VM_DIR/" || { echo "❌ Failed to copy OpenCore.qcow2"; exit 1; }
+          echo "✓ OpenCore.qcow2 ready"
+        else
+          echo "⚠ OpenCore.qcow2 not found, QEMU may fail to boot"
         fi
+      else
+        echo "OpenCore.qcow2 already exists."
       fi
 
       # =========================
@@ -138,6 +189,14 @@
       # =========================
       # Start QEMU for macOS
       # =========================
+      # Verify all required files exist
+      echo "Verifying QEMU files..."
+      [ -f "$VM_DIR/OVMF_CODE.fd" ] || { echo "❌ Missing: $VM_DIR/OVMF_CODE.fd"; exit 1; }
+      [ -f "$VM_DIR/OVMF_VARS-1920x1080.fd" ] || { echo "❌ Missing: $VM_DIR/OVMF_VARS-1920x1080.fd"; exit 1; }
+      [ -f "$VM_DIR/OpenCore.qcow2" ] || { echo "❌ Missing: $VM_DIR/OpenCore.qcow2"; exit 1; }
+      [ -f "$BASE_SYSTEM" ] || { echo "❌ Missing: $BASE_SYSTEM"; exit 1; }
+      echo "✓ All QEMU files verified"
+      
       echo "Starting QEMU for macOS Tahoe..."
       nohup qemu-system-x86_64 \
         -enable-kvm \
@@ -168,7 +227,17 @@
         -display none \
         > /tmp/qemu.log 2>&1 &
 
-      echo "QEMU PID: $!"
+      QEMU_PID=$!
+      echo "QEMU PID: $QEMU_PID"
+      
+      # Give QEMU time to start and check for immediate errors
+      sleep 2
+      if ! kill -0 $QEMU_PID 2>/dev/null; then
+        echo "❌ QEMU failed to start. Check /tmp/qemu.log:"
+        cat /tmp/qemu.log
+        exit 1
+      fi
+      echo "✓ QEMU started successfully"
 
       # =========================
       # Start noVNC on port 8888
