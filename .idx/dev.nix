@@ -44,21 +44,26 @@
       # =========================
       # Paths
       # =========================
-      VM_DIR="$HOME/qemu-macos"
-      MACOS_REPO="$HOME/OSX-KVM"
+      PROJECT_DIR="$HOME/idx-macos"
+      VM_DIR="$PROJECT_DIR/qemu-macos"
+      MACOS_REPO="$PROJECT_DIR/OSX-KVM"
+      MACOS_DOWNLOADS="$PROJECT_DIR/macos-downloads"
       BASE_SYSTEM="$VM_DIR/BaseSystem.img"
+      BASE_SYSTEM_DMG="$MACOS_DOWNLOADS/BaseSystem.dmg"
       MAC_HDD="$VM_DIR/mac_hdd_ng.img"
-      NOVNC_DIR="$HOME/noVNC"
+      NOVNC_DIR="$PROJECT_DIR/noVNC"
       OVMF_DIR="$MACOS_REPO"
 
+      mkdir -p "$PROJECT_DIR"
       mkdir -p "$VM_DIR"
+      mkdir -p "$MACOS_DOWNLOADS"
 
       # =========================
       # Copy OSX-KVM repo if needed
       # =========================
       if [ ! -d "$MACOS_REPO" ]; then
-        echo "Cloning OSX-KVM repository..."
-        cd "$HOME"
+        echo "Cloning OSX-KVM repository to $MACOS_REPO..."
+        cd "$PROJECT_DIR"
         if ! git clone --depth 1 --recursive https://github.com/kholia/OSX-KVM.git; then
           echo "❌ Failed to clone OSX-KVM repository"
           exit 1
@@ -68,7 +73,7 @@
           exit 1
         fi
       else
-        echo "OSX-KVM repository already exists."
+        echo "OSX-KVM repository already exists at $MACOS_REPO"
       fi
 
       cd "$MACOS_REPO" || { echo "❌ Failed to enter $MACOS_REPO"; exit 1; }
@@ -77,28 +82,39 @@
       # Download macOS Tahoe installer
       # =========================
       if [ ! -f "$BASE_SYSTEM" ]; then
-        echo "Downloading macOS Tahoe installer..."
-        # Create a temporary script to fetch macOS Tahoe (option 9)
-        if python3 ./fetch-macOS-v2.py --board-id Mac-27AD2F918AE68F61 --os-type default -o "$VM_DIR" 2>&1 <<< "9"; then
-          echo "✓ Downloaded successfully"
-        else
-          echo "⚠ First download attempt failed, trying alternative method..."
-          if python3 ./fetch-macOS-v2.py 2>&1 <<< "9"; then
-            echo "✓ Alternative download succeeded"
+        # Check if DMG already exists, if so, just convert it
+        if [ ! -f "$BASE_SYSTEM_DMG" ]; then
+          echo "Downloading macOS Tahoe installer to $MACOS_DOWNLOADS..."
+          if python3 ./fetch-macOS-v2.py --board-id Mac-27AD2F918AE68F61 --os-type default -o "$MACOS_DOWNLOADS" 2>&1 <<< "9"; then
+            echo "✓ Downloaded successfully"
           else
-            echo "❌ Failed to download macOS Tahoe installer"
-            exit 1
+            echo "⚠ First download attempt failed, trying alternative method..."
+            if python3 ./fetch-macOS-v2.py 2>&1 <<< "9"; then
+              echo "✓ Alternative download succeeded"
+              # Move the downloaded file to the correct location if needed
+              if [ -f "$MACOS_DOWNLOADS/BaseSystem.dmg" ]; then
+                echo "✓ DMG found in downloads folder"
+              elif [ -f "BaseSystem.dmg" ]; then
+                mv "BaseSystem.dmg" "$BASE_SYSTEM_DMG"
+              fi
+            else
+              echo "❌ Failed to download macOS Tahoe installer"
+              exit 1
+            fi
           fi
+        else
+          echo "BaseSystem.dmg already exists in downloads folder, skipping download."
         fi
 
         # Convert BaseSystem.dmg to BaseSystem.img if needed
-        if [ -f "$VM_DIR/BaseSystem.dmg" ]; then
+        if [ -f "$BASE_SYSTEM_DMG" ]; then
           echo "Converting BaseSystem.dmg to BaseSystem.img..."
-          if ! dmg2img "$VM_DIR/BaseSystem.dmg" "$BASE_SYSTEM"; then
+          if ! dmg2img "$BASE_SYSTEM_DMG" "$BASE_SYSTEM"; then
             echo "❌ Failed to convert BaseSystem.dmg"
             exit 1
           fi
           echo "✓ Conversion complete"
+          echo "✓ BaseSystem.img saved to: $BASE_SYSTEM"
         elif [ ! -f "$BASE_SYSTEM" ]; then
           echo "❌ BaseSystem image not found after download"
           exit 1
