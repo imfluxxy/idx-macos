@@ -12,8 +12,8 @@
     pkgs.python3
     pkgs.dmg2img
     pkgs.p7zip
-    pkgs.genisoimage
-    pkgs.libguestfs-tools
+    pkgs.cdrkit
+    pkgs.libguestfs
   ];
 
   idx.workspace.onStart = {
