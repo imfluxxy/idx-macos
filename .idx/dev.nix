@@ -81,7 +81,7 @@
       cd "$MACOS_REPO" || { echo "❌ Failed to enter $MACOS_REPO"; exit 1; }
 
       # =========================
-      # Download macOS Tahoe installer
+      # Download macOS installer
       # =========================
       if [ ! -f "$BASE_SYSTEM" ]; then
         # Check if DMG already exists, if so, just convert it
@@ -90,14 +90,14 @@
           cd "$MACOS_DOWNLOADS" || { echo "❌ Failed to enter $MACOS_DOWNLOADS"; exit 1; }
           
           # Try downloading with the specified method
-          if python3 "$MACOS_REPO/fetch-macOS-v2.py" --board-id Mac-27AD2F918AE68F61 --os-type default 2>&1 <<< "9"; then
+          if python3 "$MACOS_REPO/fetch-macOS-v2.py" --board-id Mac-27AD2F918AE68F61 --os-type default 2>&1 <<< "2"; then
             echo "✓ Downloaded successfully"
           else
             echo "⚠ First download attempt failed, trying alternative method..."
-            if python3 "$MACOS_REPO/fetch-macOS-v2.py" 2>&1 <<< "9"; then
+            if python3 "$MACOS_REPO/fetch-macOS-v2.py" 2>&1 <<< "2"; then
               echo "✓ Alternative download succeeded"
             else
-              echo "❌ Failed to download macOS Tahoe installer"
+              echo "❌ Failed to download macOS installer"
               echo "Checking what files are in $MACOS_DOWNLOADS:"
               ls -lh "$MACOS_DOWNLOADS"
               exit 1
@@ -256,7 +256,7 @@
       echo "Setting up local temporary directory at $TEMP_DIR..."
       export TMPDIR="$TEMP_DIR"
       
-      echo "Starting QEMU for macOS Tahoe..."
+      echo "Starting QEMU for macOS..."
       nohup env TMPDIR="$TEMP_DIR" qemu-system-x86_64 \
         -enable-kvm \
         -m 4096 \
@@ -321,7 +321,7 @@
       if grep -q "trycloudflare.com" /tmp/cloudflared.log; then
         URL=$(grep -o "https://[a-z0-9.-]*trycloudflare.com" /tmp/cloudflared.log | head -n1)
         echo "========================================="
-        echo " 🌍 macOS Tahoe QEMU + noVNC ready:"
+        echo " 🌍 macOS QEMU + noVNC ready:"
         echo "     $URL/vnc.html"
         echo "     $URL/vnc.html" > /home/user/macOS-noVNC-URL.txt
         echo "========================================="
@@ -356,7 +356,7 @@
         manager = "web";
         command = [
           "bash" "-lc"
-          "echo 'macOS Tahoe noVNC running on port 8888'"
+          "echo 'macOS noVNC running on port 8888'"
         ];
       };
       terminal = {
