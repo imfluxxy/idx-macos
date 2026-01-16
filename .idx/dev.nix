@@ -144,8 +144,8 @@
       # Create virtual HDD if missing
       # =========================
       if [ ! -f "$MAC_HDD" ]; then
-        echo "Creating virtual HDD for macOS (128GB)..."
-        if ! qemu-img create -f qcow2 "$MAC_HDD" 128G; then
+        echo "Creating virtual HDD for macOS (24GB)..."
+        if ! qemu-img create -f qcow2 "$MAC_HDD" 24G; then
           echo "❌ Failed to create virtual HDD"
           exit 1
         fi
