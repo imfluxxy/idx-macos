@@ -85,17 +85,17 @@
       # =========================
 
       # Example run:
-      1. High Sierra (10.13)
-      2. Mojave (10.14)
-      3. Catalina (10.15)
-      4. Big Sur (11.7) - recommended
-      5. Monterey (12.6)
-      6. Ventura (13)
-      7. Sonoma (14)
-      8. Sequoia (15)
-      9. Tahoe (26)
+      # 1. High Sierra (10.13)
+      # 2. Mojave (10.14)
+      # 3. Catalina (10.15)
+      # 4. Big Sur (11.7) - recommended
+      # 5. Monterey (12.6)
+      # 6. Ventura (13)
+      # 7. Sonoma (14)
+      # 8. Sequoia (15)
+      # 9. Tahoe (26)
 
-      Choose a product to download (1-9): 4
+      # Choose a product to download (1-9): 4
       if [ ! -f "$BASE_SYSTEM" ]; then
         # Check if DMG already exists, if so, just convert it
         if [ ! -f "$BASE_SYSTEM_DMG" ]; then
