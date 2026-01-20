@@ -83,6 +83,19 @@
       # =========================
       # Download macOS installer
       # =========================
+
+      # Example run:
+      1. High Sierra (10.13)
+      2. Mojave (10.14)
+      3. Catalina (10.15)
+      4. Big Sur (11.7) - recommended
+      5. Monterey (12.6)
+      6. Ventura (13)
+      7. Sonoma (14)
+      8. Sequoia (15)
+      9. Tahoe (26)
+
+      Choose a product to download (1-9): 4
       if [ ! -f "$BASE_SYSTEM" ]; then
         # Check if DMG already exists, if so, just convert it
         if [ ! -f "$BASE_SYSTEM_DMG" ]; then
@@ -90,11 +103,11 @@
           cd "$MACOS_DOWNLOADS" || { echo "❌ Failed to enter $MACOS_DOWNLOADS"; exit 1; }
           
           # Try downloading with the specified method
-          if python3 "$MACOS_REPO/fetch-macOS-v2.py" --board-id Mac-27AD2F918AE68F61 --os-type default 2>&1 <<< "2"; then
+          if python3 "$MACOS_REPO/fetch-macOS-v2.py" --board-id Mac-27AD2F918AE68F61 --os-type default 2>&1 <<< "4"; then
             echo "✓ Downloaded successfully"
           else
             echo "⚠ First download attempt failed, trying alternative method..."
-            if python3 "$MACOS_REPO/fetch-macOS-v2.py" 2>&1 <<< "2"; then
+            if python3 "$MACOS_REPO/fetch-macOS-v2.py" 2>&1 <<< "4"; then
               echo "✓ Alternative download succeeded"
             else
               echo "❌ Failed to download macOS installer"
@@ -264,6 +277,7 @@
         -machine q35 \
         -smp 4,cores=4,sockets=1 \
         -device qemu-xhci,id=xhci \
+        # -device usb-ehci,id=ehci \ Option for 10.15 or older
         -device usb-kbd,bus=xhci.0 \
         -device usb-tablet,bus=xhci.0 \
         -device isa-applesmc,osk="ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc" \
